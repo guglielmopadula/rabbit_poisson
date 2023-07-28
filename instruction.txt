@@ -1,0 +1,30 @@
+Data:
+1) Run generatedata
+2) Run preload data
+3) Run generatenegativedata
+4) Run generate_disc_dataset
+5) Run data simulations
+6) Run data ROM
+7) Run training_bayes_disc
+
+AutoEncoder Models:
+1) Run training_full
+2) Run generative sampling
+3) Run model simulations
+3) Run model mmd
+4) Run model rbf
+5) Run plots txt
+
+Latent Models:
+1) Generate encoded data
+2) Run training_latent
+3) Run generative sampling
+4) Run model simulations
+5) Run model mmd
+6) Run model rbf
+7) Run plots txt
+
+AS Model:
+1) RUn train as
+2) Run model rbf
+3) Run plots txt
