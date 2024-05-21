@@ -5,7 +5,6 @@ from ufl import ds, dx, grad, inner
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
-import time
 from dolfinx.fem import FunctionSpace
 import pyvista
 from mpi4py import MPI
@@ -14,8 +13,11 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 import tetgen
 import meshio
+import basix
 from tqdm import trange
 from scipy.interpolate import RBFInterpolator
+from time import time
+from dolfinx.fem.petsc import LinearProblem
 
 def volume_2_x(mesh):
     shape=mesh.shape
@@ -25,15 +27,12 @@ def volume_2_x(mesh):
 
 
 def calculate_simulation(name,nodes,elem,bary,write=True):
-    start=time.time()
     nodes=nodes-np.min(nodes,axis=0)
     gdim = 3
-    shape = "tetrahedron"
     degree = 1
-    cell = ufl.Cell(shape, geometric_dimension=gdim)
-    domain = ufl.Mesh(ufl.VectorElement("Lagrange", cell, degree))
-    domain = mesh.create_mesh(MPI.COMM_WORLD, elem, nodes, domain)
-    V = FunctionSpace(domain, ("CG", 2))
+    tensor_element = basix.ufl.element("Lagrange", basix.CellType(basix._basixcpp.CellType.tetrahedron), degree, shape=(gdim,))
+    domain = mesh.create_mesh(MPI.COMM_WORLD, elem, nodes, tensor_element)
+    V = fem.functionspace(domain, ("Lagrange",1))
     uD = fem.Function(V)
     uD.interpolate(lambda x: np.exp(-((x[0]-bary[0])**2 + (x[1]-bary[1])**2+(x[2]-bary[2])**2)**0.5))
     tdim = domain.topology.dim
@@ -49,7 +48,7 @@ def calculate_simulation(name,nodes,elem,bary,write=True):
     a = ufl.dot(ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = f * v * ufl.dx
     energy=fem.form(u* ufl.dx)
-    problem = fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+    problem = LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
     uh = problem.solve()    
     value=fem.assemble.assemble_scalar(energy)
     u_val=uh.x.array
@@ -57,8 +56,6 @@ def calculate_simulation(name,nodes,elem,bary,write=True):
         with io.XDMFFile(domain.comm, "simulations/"+name+".xdmf", "w") as xdmf:
             xdmf.write_mesh(domain)
             xdmf.write_function(uh)
-    end=time.time()
-    print(end-start)
     return value,u_val
 
 if __name__=="__main__":
